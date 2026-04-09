@@ -231,3 +231,18 @@ void gb_write_io(GB *gb, unsigned short addr, unsigned char val) {
             return;
     }
 }
+
+// readwrite helpers
+// i read this will be important for later so ill implement it now
+//for  things like pushing to the stack
+// gb is little endian
+unsigned short gb_read16(GB *gb, unsigned short addr) {
+    unsigned char l=gb_read(gb,addr);
+    unsigned char h=gb_read(gb,addr+1);
+    return (h<<8) | l;
+}
+
+void gb_write16(GB *gb, unsigned short addr, unsigned short v) {
+    gb_write(gb, addr, v&0xFF);
+    gb_write(gb, addr+1, v>>8);
+}

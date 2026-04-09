@@ -13,7 +13,7 @@ right now its basically just the full structure of the gameboy, no real logic ye
 
 next step is to start actually implementing things, im probably gonna be starting with memory reads and writes and then the cpu loop
 
-### commit 2
+#### commit 2 and 3
 
 got the memory system working. basically just gb\_read and gb\_write every part of the emulator talks to memory through these 2functions so i wanted to get this done before touching anything else
 
