@@ -12,3 +12,11 @@ instead of rushing into coding, i first defined the entire system state (registe
 right now its basically just the full structure of the gameboy, no real logic yet
 
 next step is to start actually implementing things, im probably gonna be starting with memory reads and writes and then the cpu loop
+
+### commit 2
+
+got the memory system working. basically just gb\_read and gb\_write every part of the emulator talks to memory through these 2functions so i wanted to get this done before touching anything else
+
+the memory map has a bunch of different regions (rom, vram, wram, oam, io) and each one needs to be handled separately, some of them have weird stuff like echo ram mirroring wram for no reason (from what i understand) and io registers that do stuff on write instead of just storing the value . the joypad register was a bit confusing, its active low so 0 means pressed which is backwards from what you'd expect lol.
+
+some stuff ill need to fix later: the bank switching (it js reads bank 1 for now) and the 160 cycles for dma transfer
