@@ -20,3 +20,13 @@ got the memory system working. basically just gb\_read and gb\_write every part 
 the memory map has a bunch of different regions (rom, vram, wram, oam, io) and each one needs to be handled separately, some of them have weird stuff like echo ram mirroring wram for no reason (from what i understand) and io registers that do stuff on write instead of just storing the value . the joypad register was a bit confusing, its active low so 0 means pressed which is backwards from what you'd expect lol.
 
 some stuff ill need to fix later: the bank switching (it js reads bank 1 for now) and the 160 cycles for dma transfer
+
+#### commit 4
+
+started on the cpu instruction decoding. its basically one giant switch statement where each case is an opcode, i raed the pandocs and that opcode table i linked in the code to figure out what each one does the most annoying part is theres like 500 instructions and a lot of them are just the same thing repeated for every register (like bruh wtf is ld r,r).
+
+wrote a small helper so i dont have to repeat the immediate load pattern everywhere got through the main ones: loads, arithemtic stuff (add/sub/and/or/xor and a couple more), jumps, calls, returns, stack push/pop, and some more shit.
+
+also learned what the half carry flag actually does, its a carry out of bit3 into bit4, no idea why so many games check it but they do so its gotta be right
+
+still missing quite a bit. check instructions.md (ai generated table to help me keep track of whats left for me to implement)
