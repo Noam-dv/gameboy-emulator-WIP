@@ -214,4 +214,5 @@ struct GB {
     PPU ppu;
     Timer timer;
     Joypad joypad;
+    int ime; // interupts
 };

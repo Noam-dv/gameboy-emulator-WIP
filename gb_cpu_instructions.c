@@ -29,7 +29,7 @@ static int hc_add16(unsigned short a, unsigned short b) {
 }
 
 // this is just so i dont have to spam these 2 lines in switch
-static void immediate_byte_to_reg(GameBoy *gb, uint8_t *reg) {
+static void immediate_byte_to_reg(GB *gb, uint8_t *reg) {
     *reg = gb_read(gb, gb->regs.pc); //stores it in the reg and inc programcounter
     gb->regs.pc++;
 }
@@ -50,7 +50,11 @@ int gb_cpu_step(GB *gb) {
             return 4;
 
         case 0xF3: // disable interrupts
+            gb->ime=0;
+            return 4;
         case 0xFB: // enable interrupts
+            gb->ime=1;
+            return 4;
         
         // write the byte given into a register
         // as in not from a place in memory
@@ -127,12 +131,14 @@ int gb_cpu_step(GB *gb) {
         // ldh 
         // quick way to access io hardware regs
         case 0xE0: {
-            unsigned char n=gb_read(gb, gb->regs.pc++);
+            unsigned char n = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
             gb_write(gb, 0xFF00+n, gb->regs.a);
             return 12;
         }
         case 0xF0: {
-            unsigned char n=gb_read(gb, gb->regs.pc++);
+            unsigned char n = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
             gb->regs.a = gb_read(gb, 0xFF00+n);
             return 12;
         }
@@ -243,6 +249,7 @@ int gb_cpu_step(GB *gb) {
             gb->regs.a = res;
             return 4;
         }
+
         case 0x83: { 
             unsigned char r=gb->regs.e; 
             unsigned char res=gb->regs.a + r; 
@@ -250,6 +257,7 @@ int gb_cpu_step(GB *gb) {
             SET_FLAG(&gb->regs, FLAG_N, 0); 
             SET_FLAG(&gb->regs, FLAG_H, hc_add(gb->regs.a, r)); 
             SET_FLAG(&gb->regs, FLAG_C, res<gb->regs.a); gb->regs.a = res; return 4; }
+
         case 0x86: {
             // add but from memory
             unsigned char r=gb_read(gb, gb->regs.hl);
@@ -261,9 +269,11 @@ int gb_cpu_step(GB *gb) {
             gb->regs.a = res;
             return 8;
         }
+
         case 0xC6: {
             // add immediate byte :) i like thes ones
-            unsigned char r=gb_read(gb, gb->regs.pc++);
+            unsigned char r = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
             unsigned char res=gb->regs.a + r;
             SET_FLAG(&gb->regs, FLAG_Z, res==0);
             SET_FLAG(&gb->regs, FLAG_N, 0);
@@ -316,7 +326,8 @@ int gb_cpu_step(GB *gb) {
             return 4;
 
         case 0xD6: {
-            unsigned char r=gb_read(gb,gb->regs.pc++);
+            unsigned char r = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
             unsigned char res=gb->regs.a-r;
             SET_FLAG(&gb->regs,FLAG_Z,res==0);
             SET_FLAG(&gb->regs,FLAG_N,1);
@@ -352,13 +363,16 @@ int gb_cpu_step(GB *gb) {
             SET_FLAG(&gb->regs,FLAG_C,0);
             return 4;
 
-        case 0xE6:
-            gb->regs.a&=gb_read(gb,gb->regs.pc++);
+        case 0xE6: {
+            unsigned char n = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
+            gb->regs.a&=n;
             SET_FLAG(&gb->regs,FLAG_Z,gb->regs.a==0);
             SET_FLAG(&gb->regs,FLAG_N,0);
             SET_FLAG(&gb->regs,FLAG_H,1);
             SET_FLAG(&gb->regs,FLAG_C,0);
             return 8;
+        }
 
         // or
         case 0xB0:
@@ -377,13 +391,16 @@ int gb_cpu_step(GB *gb) {
             SET_FLAG(&gb->regs,FLAG_C,0);
             return 4;
 
-        case 0xF6:
-            gb->regs.a|=gb_read(gb,gb->regs.pc++);
+        case 0xF6: {
+            unsigned char n = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
+            gb->regs.a|=n;
             SET_FLAG(&gb->regs,FLAG_Z,gb->regs.a==0);
             SET_FLAG(&gb->regs,FLAG_N,0);
             SET_FLAG(&gb->regs,FLAG_H,0);
             SET_FLAG(&gb->regs,FLAG_C,0);
             return 8;
+        }
 
         // xor
         case 0xA8:
@@ -412,13 +429,16 @@ int gb_cpu_step(GB *gb) {
             SET_FLAG(&gb->regs,FLAG_C,0);
             return 4;
 
-        case 0xEE:
-            gb->regs.a^=gb_read(gb,gb->regs.pc++);
+        case 0xEE: {
+            unsigned char n = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
+            gb->regs.a^=n;
             SET_FLAG(&gb->regs,FLAG_Z,gb->regs.a==0);
             SET_FLAG(&gb->regs,FLAG_N,0);
             SET_FLAG(&gb->regs,FLAG_H,0);
             SET_FLAG(&gb->regs,FLAG_C,0);
             return 8;
+        }
 
         // cp
         case 0xB8: {
@@ -448,7 +468,8 @@ int gb_cpu_step(GB *gb) {
             return 4;
 
         case 0xFE: {
-            unsigned char r=gb_read(gb,gb->regs.pc++);
+            unsigned char r = gb_read(gb, gb->regs.pc);
+            gb->regs.pc++;
             unsigned char res=gb->regs.a-r;
             SET_FLAG(&gb->regs,FLAG_Z,res==0);
             SET_FLAG(&gb->regs,FLAG_N,1);
@@ -557,15 +578,345 @@ int gb_cpu_step(GB *gb) {
             SET_FLAG(&gb->regs,FLAG_H,(gb->regs.a&0xF)==0xF);
             return 4;
 
-        // 16bit inc/dec
-        case 0x03: gb->regs.bc++; return 8;
-        case 0x13: gb->regs.de++; return 8;
-        case 0x23: gb->regs.hl++; return 8;
-        case 0x33: gb->regs.sp++; return 8;
-        case 0x0B: gb->regs.bc--; return 8;
-        case 0x1B: gb->regs.de--; return 8;
-        case 0x2B: gb->regs.hl--; return 8;
-        case 0x3B: gb->regs.sp--; return 8;
+        // 16bit inc abd dec
+        case 0x03: 
+            gb->regs.bc++; return 8;
+        case 0x13: 
+            gb->regs.de++; return 8;
+        case 0x23: 
+            gb->regs.hl++; return 8;
+        case 0x33: 
+            gb->regs.sp++; return 8;
+        case 0x0B: 
+            gb->regs.bc--; return 8;
+        case 0x1B: 
+            gb->regs.de--; return 8;
+        case 0x2B: 
+            gb->regs.hl--; return 8;
+        case 0x3B: 
+            gb->regs.sp--; return 8;
+
+        // add hl, rr
+        // doesnt touch the Z flag only N H C
+        case 0x09: {
+            unsigned short res=gb->regs.hl+gb->regs.bc;
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,hc_add16(gb->regs.hl,gb->regs.bc));
+            SET_FLAG(&gb->regs,FLAG_C,res<gb->regs.hl);
+            gb->regs.hl=res;
+            return 8;
+        }
+        case 0x19: {
+            unsigned short res=gb->regs.hl+gb->regs.de;
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,hc_add16(gb->regs.hl,gb->regs.de));
+            SET_FLAG(&gb->regs,FLAG_C,res<gb->regs.hl);
+            gb->regs.hl=res;
+            return 8;
+        }
+        case 0x29: {
+            // add hl to itself
+            unsigned short res=gb->regs.hl+gb->regs.hl;
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,hc_add16(gb->regs.hl,gb->regs.hl));
+            SET_FLAG(&gb->regs,FLAG_C,res<gb->regs.hl);
+            gb->regs.hl=res;
+            return 8;
+        }
+        case 0x39: {
+            unsigned short res=gb->regs.hl+gb->regs.sp;
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,hc_add16(gb->regs.hl,gb->regs.sp));
+            SET_FLAG(&gb->regs,FLAG_C,res<gb->regs.hl);
+            gb->regs.hl=res;
+            return 8;
+        }
+
+        // jumps
+        // jp nn just reads 2 bytes and sets pc
+        case 0xC3: {
+            gb->regs.pc=gb_read16(gb,gb->regs.pc);
+            return 16;
+        }
+
+        // conditional jumps
+        // always read the address first regardless, then decide if we jump
+        // 16 cycles if taken 12 if not
+        case 0xC2: {
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(!GET_FLAG_Z(gb->regs)) { 
+                gb->regs.pc=addr; 
+                return 16; 
+            }
+            return 12;
+        }
+        case 0xCA: {
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(GET_FLAG_Z(gb->regs)) { 
+                gb->regs.pc=addr; 
+                return 16; 
+            }
+            return 12;
+        }
+        case 0xD2: {
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(!GET_FLAG_C(gb->regs)) { 
+                gb->regs.pc=addr;
+                return 16;
+            }
+            return 12;
+        }
+        case 0xDA: {
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(GET_FLAG_C(gb->regs)) { 
+                gb->regs.pc=addr;
+                return 16;
+            }
+            return 12;
+        }
+
+        case 0xE9: // jp hl
+            gb->regs.pc=gb->regs.hl;
+            return 4;
+
+        // jr relative jump
+        // offset is a signed byte so it can go backwards, took me a sec to get that
+        case 0x18: {
+            signed char off=(signed char)gb_read(gb,gb->regs.pc);
+            gb->regs.pc++;
+            gb->regs.pc+=off;
+            return 12;
+        }
+        case 0x20: { // jr nz
+            signed char off=(signed char)gb_read(gb,gb->regs.pc);
+            gb->regs.pc++;
+            if(!GET_FLAG_Z(gb->regs)) { gb->regs.pc+=off; return 12; }
+            return 8;
+        }
+        case 0x28: { // jr z
+            signed char off=(signed char)gb_read(gb,gb->regs.pc);
+            gb->regs.pc++;
+            if(GET_FLAG_Z(gb->regs)) { gb->regs.pc+=off; return 12; }
+            return 8;
+        }
+        case 0x30: { // jr nc
+            signed char off=(signed char)gb_read(gb,gb->regs.pc);
+            gb->regs.pc++;
+            if(!GET_FLAG_C(gb->regs)) { gb->regs.pc+=off; return 12; }
+            return 8;
+        }
+        case 0x38: { // jr c
+            signed char off=(signed char)gb_read(gb,gb->regs.pc);
+            gb->regs.pc++;
+            if(GET_FLAG_C(gb->regs)) { gb->regs.pc+=off; return 12; }
+            return 8;
+        }
+
+        // call pushes the return address then jumps
+        // ret pops it back, basically just push/pop for pc
+        case 0xCD: {
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            gb->regs.sp-=2;
+            gb_write16(gb,gb->regs.sp,gb->regs.pc);
+            gb->regs.pc=addr;
+            return 24;
+        }
+
+        case 0xC4: { // call nz
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(!GET_FLAG_Z(gb->regs)) {
+                gb->regs.sp-=2;
+                gb_write16(gb,gb->regs.sp,gb->regs.pc);
+                gb->regs.pc=addr;
+                return 24;
+            }
+            return 12;
+        }
+        case 0xCC: { // call z
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(GET_FLAG_Z(gb->regs)) {
+                gb->regs.sp-=2;
+                gb_write16(gb,gb->regs.sp,gb->regs.pc);
+                gb->regs.pc=addr;
+                return 24;
+            }
+            return 12;
+        }
+        case 0xD4: { // call nc
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(!GET_FLAG_C(gb->regs)) {
+                gb->regs.sp-=2;
+                gb_write16(gb,gb->regs.sp,gb->regs.pc);
+                gb->regs.pc=addr;
+                return 24;
+            }
+            return 12;
+        }
+        case 0xDC: { // call c
+            unsigned short addr=gb_read16(gb,gb->regs.pc);
+            gb->regs.pc+=2;
+            if(GET_FLAG_C(gb->regs)) {
+                gb->regs.sp-=2;
+                gb_write16(gb,gb->regs.sp,gb->regs.pc);
+                gb->regs.pc=addr;
+                return 24;
+            }
+            return 12;
+        }
+
+        case 0xC9: // ret
+            gb->regs.pc=gb_read16(gb,gb->regs.sp);
+            gb->regs.sp+=2;
+            return 16;
+
+        case 0xD9: // reti - ret and reenable interrupts
+            gb->regs.pc=gb_read16(gb,gb->regs.sp);
+            gb->regs.sp+=2;
+            gb->ime=1;
+            return 16;
+
+        case 0xC0: // ret nz
+            if(!GET_FLAG_Z(gb->regs)) {
+                gb->regs.pc=gb_read16(gb,gb->regs.sp);
+                gb->regs.sp+=2;
+                return 20;
+            }
+            return 8;
+        case 0xC8: // ret z
+            if(GET_FLAG_Z(gb->regs)) {
+                gb->regs.pc=gb_read16(gb,gb->regs.sp);
+                gb->regs.sp+=2;
+                return 20;
+            }
+            return 8;
+        case 0xD0: // ret nc
+            if(!GET_FLAG_C(gb->regs)) {
+                gb->regs.pc=gb_read16(gb,gb->regs.sp);
+                gb->regs.sp+=2;
+                return 20;
+            }
+            return 8;
+        case 0xD8: // ret c
+            if(GET_FLAG_C(gb->regs)) {
+                gb->regs.pc=gb_read16(gb,gb->regs.sp);
+                gb->regs.sp+=2;
+                return 20;
+            }
+            return 8;
+
+        // rst, hardcoded call to a fixed vector
+        // games use these as fast syscall like jumps
+        case 0xC7: 
+            gb->regs.sp-=2; 
+            gb_write16(gb,gb->regs.sp,gb->regs.pc); 
+            gb->regs.pc=0x00; 
+            return 16;
+        case 0xCF: 
+            gb->regs.sp-=2; 
+            gb_write16(gb,gb->regs.sp,gb->regs.pc); 
+            gb->regs.pc=0x08; 
+            return 16;
+        case 0xD7: 
+            gb->regs.sp-=2;
+            gb_write16(gb,gb->regs.sp,gb->regs.pc); 
+            gb->regs.pc=0x10; 
+            return 16;
+        case 0xDF: 
+            gb->regs.sp-=2;
+            gb_write16(gb,gb->regs.sp,gb->regs.pc); 
+            gb->regs.pc=0x18; 
+            return 16;
+        case 0xE7: 
+            gb->regs.sp-=2;
+            gb_write16(gb,gb->regs.sp,gb->regs.pc); 
+            gb->regs.pc=0x20; 
+            return 16;
+        case 0xEF: 
+            gb->regs.sp-=2;
+            gb_write16(gb,gb->regs.sp,gb->regs.pc); 
+            gb->regs.pc=0x28; 
+            return 16;
+        case 0xF7: 
+            gb->regs.sp-=2;
+            gb_write16(gb,gb->regs.sp,gb->regs.pc); 
+            gb->regs.pc=0x30;
+            return 16;
+        case 0xFF: 
+            gb->regs.sp-=2;
+            gb_write16(gb,gb->regs.sp,gb->regs.pc);
+            gb->regs.pc=0x38;
+            return 16;
+
+        // rotates on a
+        // rlca: shift left, old bit7 wraps into bit0 AND goes to carry
+        // rla: shift left, old bit7 goes to carry, old carry goes into bit0
+        // & 0x80 isolates bit7, >> 7 shifts it down to bit0
+        case 0x07: {
+            unsigned char c=(gb->regs.a&0x80)>>7;
+            gb->regs.a=(gb->regs.a<<1)|c;
+            SET_FLAG(&gb->regs,FLAG_Z,0);
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,0);
+            SET_FLAG(&gb->regs,FLAG_C,c);
+            return 4;
+        }
+        case 0x17: {
+            unsigned char oldc=GET_FLAG_C(gb->regs)?1:0;
+            unsigned char newc=(gb->regs.a&0x80)>>7;
+            gb->regs.a=(gb->regs.a<<1)|oldc;
+            SET_FLAG(&gb->regs,FLAG_Z,0);
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,0);
+            SET_FLAG(&gb->regs,FLAG_C,newc);
+            return 4;
+        }
+        case 0x0F: { // rrca
+            unsigned char c=gb->regs.a&0x01;
+            gb->regs.a=(gb->regs.a>>1)|(c<<7);
+            SET_FLAG(&gb->regs,FLAG_Z,0);
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,0);
+            SET_FLAG(&gb->regs,FLAG_C,c);
+            return 4;
+        }
+        case 0x1F: { // rra
+            unsigned char oldc=GET_FLAG_C(gb->regs)?1:0;
+            unsigned char newc=gb->regs.a&0x01;
+            gb->regs.a=(gb->regs.a>>1)|(oldc<<7);
+            SET_FLAG(&gb->regs,FLAG_Z,0);
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,0);
+            SET_FLAG(&gb->regs,FLAG_C,newc);
+            return 4;
+        }
+
+        // misc
+        case 0x2F: // cpl, ~ flips every bit in a
+            gb->regs.a=~gb->regs.a;
+            SET_FLAG(&gb->regs,FLAG_N,1);
+            SET_FLAG(&gb->regs,FLAG_H,1);
+            return 4;
+
+        case 0x3F: // ccf, flip carry flag
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,0);
+            SET_FLAG(&gb->regs,FLAG_C,!GET_FLAG_C(gb->regs));
+            return 4;
+
+        case 0x37: // scf, set carry flag
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,0);
+            SET_FLAG(&gb->regs,FLAG_C,1);
+            return 4;
+
         case 0x27:
             // dont really get this yet
             // ill do if smth breaks
@@ -577,7 +928,7 @@ int gb_cpu_step(GB *gb) {
         }
 
         default:
-            printf("whoops undefined opcode 0x%02X\n", op);
+            printf("whoops undefined opcode 0x%02X\n :-(", op);
             return 4;
     }
 }
