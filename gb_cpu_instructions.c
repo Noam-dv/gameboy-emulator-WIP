@@ -184,6 +184,30 @@ static void do_rst(GB *gb, unsigned short vec) {
     gb->regs.pc=vec;
 }
 
+// adc add with carry
+// same as add but turns on the carry flag too
+// used for doing 16bit math in two 8bit chunks
+static void do_adc(GB *gb, unsigned char r) {
+    unsigned char c=GET_FLAG_C(gb->regs)?1:0;
+    unsigned char res=gb->regs.a + r + c;
+    SET_FLAG(&gb->regs,FLAG_Z,res==0);
+    SET_FLAG(&gb->regs,FLAG_N,0);
+    SET_FLAG(&gb->regs,FLAG_H,((gb->regs.a&0xF)+(r&0xF)+c)>0xF);
+    SET_FLAG(&gb->regs,FLAG_C,(unsigned short)gb->regs.a+r+c>0xFF);
+    gb->regs.a=res;
+}
+
+// sbc same as earlier
+static void do_sbc(GB *gb, unsigned char r) {
+    unsigned char c=GET_FLAG_C(gb->regs)?1:0;
+    unsigned char res=gb->regs.a - r - c;
+    SET_FLAG(&gb->regs,FLAG_Z,res==0);
+    SET_FLAG(&gb->regs,FLAG_N,1);
+    SET_FLAG(&gb->regs,FLAG_H,((gb->regs.a&0xF)-(r&0xF)-c)<0);
+    SET_FLAG(&gb->regs,FLAG_C,(unsigned short)gb->regs.a<(unsigned short)r+c);
+    gb->regs.a=res;
+}
+
 int gb_cpu_step(GB *gb) {
     // interrupts here 
     // ill do those later
@@ -308,6 +332,21 @@ int gb_cpu_step(GB *gb) {
         case 0x31: immediate_word_to_reg(gb, &gb->regs.sp); return 12;
         case 0xF9: gb->regs.sp = gb->regs.hl; return 8;
 
+        case 0xF8: {
+            // ld hl , sp+n
+            // sp+signed offset into hl
+            // flags are weird here took me a little time
+            signed char n=(signed char)gb_read(gb,gb->regs.pc);
+            gb->regs.pc++;
+            unsigned short res=gb->regs.sp + n;
+            SET_FLAG(&gb->regs,FLAG_Z,0);
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,((gb->regs.sp^n^res)&0x10)!=0);
+            SET_FLAG(&gb->regs,FLAG_C,((gb->regs.sp^n^res)&0x100)!=0);
+            gb->regs.hl=res;
+            return 12;
+        }
+
         case 0x08: {
             // store sp somewhere in memory
             // games use this to save it before messing with it
@@ -355,8 +394,23 @@ int gb_cpu_step(GB *gb) {
         case 0x84: do_add(gb, gb->regs.h); return 4;
         case 0x85: do_add(gb, gb->regs.l); return 4;
         case 0x86: do_add(gb, gb_read(gb, gb->regs.hl)); return 8; // add but from memory
+        case 0x87: do_add(gb, gb->regs.a); return 4; // add a to itself, doubles it
         case 0xC6: // add immediate byte :) i like thes ones
             do_add(gb, gb_read(gb, gb->regs.pc));
+            gb->regs.pc++;
+            return 8;
+
+        // adc a r
+        case 0x88: do_adc(gb, gb->regs.b); return 4;
+        case 0x89: do_adc(gb, gb->regs.c); return 4;
+        case 0x8A: do_adc(gb, gb->regs.d); return 4;
+        case 0x8B: do_adc(gb, gb->regs.e); return 4;
+        case 0x8C: do_adc(gb, gb->regs.h); return 4;
+        case 0x8D: do_adc(gb, gb->regs.l); return 4;
+        case 0x8E: do_adc(gb, gb_read(gb, gb->regs.hl)); return 8;
+        case 0x8F: do_adc(gb, gb->regs.a); return 4;
+        case 0xCE: // adc immediate
+            do_adc(gb, gb_read(gb, gb->regs.pc));
             gb->regs.pc++;
             return 8;
 
@@ -367,10 +421,25 @@ int gb_cpu_step(GB *gb) {
         case 0x93: do_sub(gb, gb->regs.e); return 4;
         case 0x94: do_sub(gb, gb->regs.h); return 4;
         case 0x95: do_sub(gb, gb->regs.l); return 4;
+        case 0x96: do_sub(gb, gb_read(gb, gb->regs.hl)); return 8; // sub from memory
         case 0x97: // sub a always zero
             do_sub(gb, gb->regs.a); return 4;
         case 0xD6: // sub immediate
             do_sub(gb, gb_read(gb, gb->regs.pc));
+            gb->regs.pc++;
+            return 8;
+
+        // sbc a r
+        case 0x98: do_sbc(gb, gb->regs.b); return 4;
+        case 0x99: do_sbc(gb, gb->regs.c); return 4;
+        case 0x9A: do_sbc(gb, gb->regs.d); return 4;
+        case 0x9B: do_sbc(gb, gb->regs.e); return 4;
+        case 0x9C: do_sbc(gb, gb->regs.h); return 4;
+        case 0x9D: do_sbc(gb, gb->regs.l); return 4;
+        case 0x9E: do_sbc(gb, gb_read(gb, gb->regs.hl)); return 8;
+        case 0x9F: do_sbc(gb, gb->regs.a); return 4;
+        case 0xDE: // sbc immediate
+            do_sbc(gb, gb_read(gb, gb->regs.pc));
             gb->regs.pc++;
             return 8;
 
@@ -392,6 +461,11 @@ int gb_cpu_step(GB *gb) {
         // or
         case 0xB0: do_or(gb, gb->regs.b); return 4;
         case 0xB1: do_or(gb, gb->regs.c); return 4;
+        case 0xB2: do_or(gb, gb->regs.d); return 4;
+        case 0xB3: do_or(gb, gb->regs.e); return 4;
+        case 0xB4: do_or(gb, gb->regs.h); return 4;
+        case 0xB5: do_or(gb, gb->regs.l); return 4;
+        case 0xB7: do_or(gb, gb->regs.a); return 4; // or a ???????????????????
         case 0xF6: // or immediate
             do_or(gb, gb_read(gb, gb->regs.pc));
             gb->regs.pc++;
@@ -400,6 +474,10 @@ int gb_cpu_step(GB *gb) {
         // xor
         case 0xA8: do_xor(gb, gb->regs.b); return 4;
         case 0xA9: do_xor(gb, gb->regs.c); return 4;
+        case 0xAA: do_xor(gb, gb->regs.d); return 4;
+        case 0xAB: do_xor(gb, gb->regs.e); return 4;
+        case 0xAC: do_xor(gb, gb->regs.h); return 4;
+        case 0xAD: do_xor(gb, gb->regs.l); return 4;
         case 0xAF: 
             // xor a
             // zero fast
@@ -412,6 +490,10 @@ int gb_cpu_step(GB *gb) {
         // cp
         case 0xB8: do_cp(gb, gb->regs.b); return 4;
         case 0xB9: do_cp(gb, gb->regs.c); return 4;
+        case 0xBA: do_cp(gb, gb->regs.d); return 4;
+        case 0xBB: do_cp(gb, gb->regs.e); return 4;
+        case 0xBC: do_cp(gb, gb->regs.h); return 4;
+        case 0xBD: do_cp(gb, gb->regs.l); return 4;
         case 0xBF: // cp a , a bruh WHY! 😭
             do_cp(gb, gb->regs.a); return 4;
         case 0xFE: // cp immediate
@@ -427,6 +509,15 @@ int gb_cpu_step(GB *gb) {
         case 0x24: do_inc(gb, &gb->regs.h); return 4;
         case 0x2C: do_inc(gb, &gb->regs.l); return 4;
         case 0x3C: do_inc(gb, &gb->regs.a); return 4;
+        case 0x34: { // inc hl
+            unsigned char v=gb_read(gb,gb->regs.hl);
+            v++;
+            gb_write(gb,gb->regs.hl,v);
+            SET_FLAG(&gb->regs,FLAG_Z,v==0);
+            SET_FLAG(&gb->regs,FLAG_N,0);
+            SET_FLAG(&gb->regs,FLAG_H,(v&0xF)==0);
+            return 12;
+        }
 
         // dec
         case 0x05: do_dec(gb, &gb->regs.b); return 4;
@@ -436,6 +527,15 @@ int gb_cpu_step(GB *gb) {
         case 0x25: do_dec(gb, &gb->regs.h); return 4;
         case 0x2D: do_dec(gb, &gb->regs.l); return 4;
         case 0x3D: do_dec(gb, &gb->regs.a); return 4;
+        case 0x35: { // dec hl
+            unsigned char v=gb_read(gb,gb->regs.hl);
+            v--;
+            gb_write(gb,gb->regs.hl,v);
+            SET_FLAG(&gb->regs,FLAG_Z,v==0);
+            SET_FLAG(&gb->regs,FLAG_N,1);
+            SET_FLAG(&gb->regs,FLAG_H,(v&0xF)==0xF);
+            return 12;
+        }
 
         // 16bit inc abd dec
         case 0x03: gb->regs.bc++; return 8;

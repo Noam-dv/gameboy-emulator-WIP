@@ -3,7 +3,7 @@
 Im interested in learning how to write an emulator from scratch. this is a research project
 i am following a guide and implementing alone in an attempt to learn in a more interesting way
 
-#### commit 1
+#### progress 1
 
 i started by reading through the gameboy docs (pandocs, links are in the code) just to understand how everything actually works cpu registers, memory map, all that stuff
 
@@ -13,7 +13,7 @@ right now its basically just the full structure of the gameboy, no real logic ye
 
 next step is to start actually implementing things, im probably gonna be starting with memory reads and writes and then the cpu loop
 
-#### commit 2 and 3
+#### progress 2
 
 got the memory system working. basically just gb\_read and gb\_write every part of the emulator talks to memory through these 2functions so i wanted to get this done before touching anything else
 
@@ -21,7 +21,7 @@ the memory map has a bunch of different regions (rom, vram, wram, oam, io) and e
 
 some stuff ill need to fix later: the bank switching (it js reads bank 1 for now) and the 160 cycles for dma transfer
 
-#### commit 4
+#### progress 3
 
 started on the cpu instruction decoding. its basically one giant switch statement where each case is an opcode, i raed the pandocs and that opcode table i linked in the code to figure out what each one does the most annoying part is theres like 500 instructions and a lot of them are just the same thing repeated for every register (like bruh wtf is ld r,r).
 
@@ -30,3 +30,9 @@ wrote a small helper so i dont have to repeat the immediate load pattern everywh
 also learned what the half carry flag actually does, its a carry out of bit3 into bit4, no idea why so many games check it but they do so its gotta be right
 
 still missing quite a bit. check instructions.md (ai generated table to help me keep track of whats left for me to implement)
+
+#### progress 4
+
+finished off the remaining gaps in the arithmetic section. the hl ones cant use the do_inc/do\_dec helpers since those take a pointer and you cant really point into memory the same way
+
+the 8bit arithmetic section is almost entirely done now which is nice to see!!
