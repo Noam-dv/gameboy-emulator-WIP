@@ -352,6 +352,8 @@ int gb_cpu_step(GB *gb) {
         case 0x81: do_add(gb, gb->regs.c); return 4;
         case 0x82: do_add(gb, gb->regs.d); return 4;
         case 0x83: do_add(gb, gb->regs.e); return 4;
+        case 0x84: do_add(gb, gb->regs.h); return 4;
+        case 0x85: do_add(gb, gb->regs.l); return 4;
         case 0x86: do_add(gb, gb_read(gb, gb->regs.hl)); return 8; // add but from memory
         case 0xC6: // add immediate byte :) i like thes ones
             do_add(gb, gb_read(gb, gb->regs.pc));
@@ -362,6 +364,9 @@ int gb_cpu_step(GB *gb) {
         case 0x90: do_sub(gb, gb->regs.b); return 4;
         case 0x91: do_sub(gb, gb->regs.c); return 4;
         case 0x92: do_sub(gb, gb->regs.d); return 4;
+        case 0x93: do_sub(gb, gb->regs.e); return 4;
+        case 0x94: do_sub(gb, gb->regs.h); return 4;
+        case 0x95: do_sub(gb, gb->regs.l); return 4;
         case 0x97: // sub a always zero
             do_sub(gb, gb->regs.a); return 4;
         case 0xD6: // sub immediate
@@ -372,8 +377,11 @@ int gb_cpu_step(GB *gb) {
         // and op
         case 0xA0: do_and(gb, gb->regs.b); return 4;
         case 0xA1: do_and(gb, gb->regs.c); return 4;
-        case 0xA7: 
-            // and a
+        case 0xA2: do_and(gb, gb->regs.d); return 4;
+        case 0xA3: do_and(gb, gb->regs.e); return 4;
+        case 0xA4: do_and(gb, gb->regs.h); return 4;
+        case 0xA5: do_and(gb, gb->regs.l); return 4;
+        case 0xA7: // and a
             // kinda pointless but it exists
             do_and(gb, gb->regs.a); return 4;
         case 0xE6: // and immediate
