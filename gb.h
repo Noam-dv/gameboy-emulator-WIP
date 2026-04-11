@@ -1,3 +1,6 @@
+#ifndef GB_H
+#define GB_H
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -216,3 +219,5 @@ struct GB {
     Joypad joypad;
     int ime; // interupts
 };
+
+#endif
