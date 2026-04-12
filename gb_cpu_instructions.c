@@ -706,7 +706,133 @@ int gb_cpu_step(GB *gb) {
     }
 }
 
+// cb prefixes
+// bit operations
 int gb_execute_cb(GB *gb, unsigned char op) {
-    //will implement later :)
+    // lower 3 bits tell which reg 
+    // bits 3-7 tell op
+    // 0=b 1=c 2=d 3=e 4=h 5=l 6=hp 7=a
+    unsigned char *r;
+    int is_hl=0;
+    unsigned char temp;
+    
+    switch(op&0x07) {
+        case 0: r=&gb->regs.b; break;
+        case 1: r=&gb->regs.c; break;
+        case 2: r=&gb->regs.d; break;
+        case 3: r=&gb->regs.e; break;
+        case 4: r=&gb->regs.h; break;
+        case 5: r=&gb->regs.l; break;
+        case 6:
+            is_hl=1;
+            temp=gb_read(gb,gb->regs.hl);
+            r=&temp;
+            break;
+        case 7: r=&gb->regs.a; break;
+    }
+
+    unsigned char high=(op>>6)&0x03;
+    unsigned char bit=(op>>3)&0x07;
+
+    if(high==0) {
+        // rotates and shifts 0x00-0x3F
+        switch((op>>3)&0x07) {
+            case 0: { // rlc
+                unsigned char c=(*r&0x80)>>7;
+                *r=(*r<<1)|c;
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,c);
+                break;
+            }
+            case 1: { // rrc
+                unsigned char c=*r&0x01;
+                *r=(*r>>1)|(c<<7);
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,c);
+                break;
+            }
+            case 2: { // rl
+                unsigned char oldc=GET_FLAG_C(gb->regs)?1:0;
+                unsigned char newc=(*r&0x80)>>7;
+                *r=(*r<<1)|oldc;
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,newc);
+                break;
+            }
+            case 3: { // rr
+                unsigned char oldc=GET_FLAG_C(gb->regs)?1:0;
+                unsigned char newc=*r&0x01;
+                *r=(*r>>1)|(oldc<<7);
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,newc);
+                break;
+            }
+            case 4: { // sla
+                unsigned char c=(*r&0x80)>>7;
+                *r<<=1;
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,c);
+                break;
+            }
+            case 5: { // sra keep sign bit
+                unsigned char c=*r&0x01;
+                unsigned char sign=*r&0x80;
+                *r=(*r>>1)|sign;
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,c);
+                break;
+            }
+            case 6: { // swap bottoms
+                *r=((*r&0x0F)<<4)|((*r&0xF0)>>4);
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,0);
+                break;
+            }
+            case 7: { // srl
+                unsigned char c=*r&0x01;
+                *r>>=1;
+                SET_FLAG(&gb->regs,FLAG_Z,*r==0);
+                SET_FLAG(&gb->regs,FLAG_N,0);
+                SET_FLAG(&gb->regs,FLAG_H,0);
+                SET_FLAG(&gb->regs,FLAG_C,c);
+                break;
+            }
+        }
+    }
+    else if(high==1) {
+        // bit test 0x40 to 0x7F
+        unsigned char result=(*r)&(1<<bit);
+        SET_FLAG(&gb->regs,FLAG_Z,result==0);
+        SET_FLAG(&gb->regs,FLAG_N,0);
+        SET_FLAG(&gb->regs,FLAG_H,1);
+    }
+    else if(high==2) {
+        // res clear bit 0x80 to 0xBF
+        *r&=~(1<<bit);
+    }
+    else if(high==3) {
+        // set bit 0xC0 to 0xFF
+        *r|=(1<<bit);
+    }
+
+    if(is_hl) {
+        gb_write(gb,gb->regs.hl,temp);
+        return 16;
+    }
+
     return 8;
 }
