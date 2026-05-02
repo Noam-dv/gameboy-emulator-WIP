@@ -1,5 +1,12 @@
 # gameboy-emulator
 
+
+
+
+project on hiatus until june, have other projects i have to work on and many many school exams :^)
+
+
+
 Im interested in learning how to write an emulator from scratch. this is a research project
 i am following a guide and implementing alone in an attempt to learn in a more interesting way
 
